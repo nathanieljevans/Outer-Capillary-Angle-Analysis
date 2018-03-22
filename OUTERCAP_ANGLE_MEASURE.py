@@ -202,6 +202,13 @@ main_dir = input('Enter the directory that contains the test directories to be a
 if (main_dir is None): 
     main_dir = './'            
 
+upper_bore = input ('what is the upper bore diameter (inches) enter in form 0.XXX): ' )
+lower_bore = input ('what is the lower bore diameter (inches) enter in form 0.XXX): ' )
+if (upper_bore is not None): 
+    UPPER_BORE_DIAM = upper_bore
+if (lower_bore is not None): 
+    LOWER_BORE_DIAM = lower_bore
+            
 for dir_ in filter(lambda x: x[-4] is not '.', os.listdir(main_dir)):
     main(dir_)
 
