@@ -3,10 +3,6 @@
 This scripts is intended to be used to locate capillary and chamber bores in a sequence of images then 
 combine those values for use in finding outer capillary angle and position in reference to rotation axis 
 """
-
-
-
-
 import numpy as np
 import matplotlib.pyplot as plt
 from skimage import filters
@@ -61,7 +57,6 @@ def main(example_path):
     vals['angle_x'] = np.degrees(np.arctan( ( vals['upper ledge']['DX-in'] - vals['lower ledge']['DX-in'] ) / LEDGE_SEPARATION_DISTANCE)) 
     vals['angle_y'] = np.degrees(np.arctan( ( vals['upper ledge']['DY-in'] - vals['lower ledge']['DY-in'] ) / LEDGE_SEPARATION_DISTANCE)) 
 
-    path = example_path.split('/')[-1]
     f = open(example_path+'\\angle_calc-' + example_path.split('/')[-1] +'.txt', 'w')
     f.write(str(vals))
     try:
