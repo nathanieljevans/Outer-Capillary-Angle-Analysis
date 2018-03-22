@@ -61,7 +61,8 @@ def main(example_path):
     vals['angle_x'] = np.degrees(np.arctan( ( vals['upper ledge']['DX-in'] - vals['lower ledge']['DX-in'] ) / LEDGE_SEPARATION_DISTANCE)) 
     vals['angle_y'] = np.degrees(np.arctan( ( vals['upper ledge']['DY-in'] - vals['lower ledge']['DY-in'] ) / LEDGE_SEPARATION_DISTANCE)) 
 
-    f = open(example_path+'\\angle_calc.txt', 'w')
+    path = example_path.split('/')[-1]
+    f = open(example_path+'\\angle_calc-' + example_path.split('/')[-1] +'.txt', 'w')
     f.write(str(vals))
     try:
         f.write('\n\n\n\n\n')
@@ -81,13 +82,10 @@ def dict_printer(dic, lvl):
         s += '[ ' + str(dic) + ' ]'
     return s 
         
-        
-    
 def create_composite_image(ledge_path): 
     outputs = ledge_path+'\\outputs'
     if  not os.path.isdir(outputs):
         os.makedirs(outputs)
-    
     
     f = open(outputs+'\\composite_outputs.txt','w')
     f.write('IMG NAME -- capillary: (x,y,radius)) -- bore: (x,y, radius)\n')
@@ -130,6 +128,8 @@ def create_composite_image(ledge_path):
     f.close()
     ax1.add_patch(Circle(rotation_axis_xy, 5, color='y', fill=True))
     fig1.savefig(outputs+'\\'+'composite.png')
+    del(ax1)
+    del(fig1)
     #plt.show(ax1)
     return cap_dist_from_rot_axis, avg_bore_diameter 
         
@@ -187,7 +187,8 @@ def get_circle_locations(image, name, outputs):
         ax1.add_patch(Circle((bore_x,bore_y),bore_r, color='r', fill=False))
         ax1.add_patch(Circle((cap_x,cap_y),cap_r, color='r', fill=False))
         fig1.savefig(outputs+'\\'+name[:-4]+'-circled.png')
-        
+        del(ax1)
+        del(fig1)
         return (cap_x, cap_y, cap_r), (bore_x,bore_y,bore_r)
     except: 
         print('failed at ' + str(name))
@@ -202,8 +203,8 @@ main_dir = input('Enter the directory that contains the test directories to be a
 if (main_dir is None): 
     main_dir = './'            
 
-upper_bore = input ('what is the upper bore diameter (inches) enter in form 0.XXX): ' )
-lower_bore = input ('what is the lower bore diameter (inches) enter in form 0.XXX): ' )
+upper_bore = input ('what is the upper bore diameter (inches) enter in form 0.XXX: ' )
+lower_bore = input ('what is the lower bore diameter (inches) enter in form 0.XXX: ' )
 if (upper_bore is not None): 
     UPPER_BORE_DIAM = float(upper_bore)
 if (lower_bore is not None): 
