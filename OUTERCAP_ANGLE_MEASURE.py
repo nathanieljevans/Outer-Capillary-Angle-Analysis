@@ -205,11 +205,12 @@ if (main_dir is None):
 upper_bore = input ('what is the upper bore diameter (inches) enter in form 0.XXX): ' )
 lower_bore = input ('what is the lower bore diameter (inches) enter in form 0.XXX): ' )
 if (upper_bore is not None): 
-    UPPER_BORE_DIAM = upper_bore
+    UPPER_BORE_DIAM = float(upper_bore)
 if (lower_bore is not None): 
-    LOWER_BORE_DIAM = lower_bore
+    LOWER_BORE_DIAM = float(lower_bore)
             
 for dir_ in filter(lambda x: x[-4] is not '.', os.listdir(main_dir)):
-    main(dir_)
+    print(dir_)
+    main(main_dir + '\\' + dir_)
 
 print('complete, time elapsed: ' + str(time() - tic))
