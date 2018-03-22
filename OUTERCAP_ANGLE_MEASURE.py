@@ -15,6 +15,7 @@ from scipy import misc
 from matplotlib.patches import Circle
 from os import listdir
 import os
+from time import time
 
 path = "C:\\Users\\evans\\Documents\\OUTER_CAP_MEASUREMENT_PICS\\C017-3945_001"
 path2 = "C:\\Users\\evans\\Documents\\OUTER_CAP_MEASUREMENT_PICS\\C017-3945_002"
@@ -24,21 +25,20 @@ LEDGE_SEPARATION_DISTANCE = 0.577 # in
 UPPER_BORE_DIAM = 0.092 # in 
 LOWER_BORE_DIAM = 0.057 # in
 
-
 def main(example_path): 
     DIRS = os.listdir(example_path)
-    
     deltas = []
     diams = []
     for opt in DIRS:     
-        Delta_cap_xy, bore_diam = create_composite_image(example_path+'\\'+opt)
-        deltas.append(Delta_cap_xy)
-        diams.append(bore_diam)
+        if (opt[-4] is not '.'):
+            Delta_cap_xy, bore_diam = create_composite_image(example_path+'\\'+opt)
+            deltas.append(Delta_cap_xy)
+            diams.append(bore_diam)
 
     upper = {"DX" : deltas[0][0], "DY" : deltas[0][1], "bore diam" : diams[0], "descrip" : "upper ledge values"}
     lower = {"DX" : deltas[1][0], "DY" : deltas[1][1], "bore diam" : diams[1], "descrip" : "lower ledge values"}
 
-    if (diams[0] > diams[1]): 
+    if (diams[1] > diams[0]): 
         temp = lower
         lower['descrip'] = 'upper ledge values'
         upper['descrip'] = 'lower ledge values'
@@ -58,14 +58,31 @@ def main(example_path):
     vals['lower ledge']['DX-in'] = vals["lower ledge"]['px map']*vals['upper ledge']['DX']
     vals['lower ledge']['DY-in'] = vals["lower ledge"]['px map']*vals['upper ledge']['DY']
 
-    vals['angle_x'] = np.degrees(np.arctan( ( vals['upper ledge']['DX-in']-vals['lower ledge']['DX-in'] ) / LEDGE_SEPARATION_DISTANCE)) 
-    vals['angle_y'] = np.degrees(np.arctan( ( vals['upper ledge']['DY-in']-vals['lower ledge']['DY-in'] ) / LEDGE_SEPARATION_DISTANCE)) 
+    vals['angle_x'] = np.degrees(np.arctan( ( vals['upper ledge']['DX-in'] - vals['lower ledge']['DX-in'] ) / LEDGE_SEPARATION_DISTANCE)) 
+    vals['angle_y'] = np.degrees(np.arctan( ( vals['upper ledge']['DY-in'] - vals['lower ledge']['DY-in'] ) / LEDGE_SEPARATION_DISTANCE)) 
 
     f = open(example_path+'\\angle_calc.txt', 'w')
     f.write(str(vals))
+    try:
+        f.write('\n\n\n\n\n')
+        f.write(dict_printer(vals, 0))
+    except:
+        print('dict writer failed')
     f.close()
     
-
+def dict_printer(dic, lvl): 
+    s = '\n' + '\t'*lvl 
+    if (type(dic) is dict):
+        for i,key in enumerate(dic.keys()): 
+            if (i > 0): 
+                s += '\n' + '\t'*lvl
+            s += key + ' { ' + dict_printer(dic[key], lvl+1)
+    else: 
+        s += '[ ' + str(dic) + ' ]'
+    return s 
+        
+        
+    
 def create_composite_image(ledge_path): 
     outputs = ledge_path+'\\outputs'
     if  not os.path.isdir(outputs):
@@ -175,6 +192,17 @@ def get_circle_locations(image, name, outputs):
     except: 
         print('failed at ' + str(name))
         print('expected outputs ' + str(outputs))
-    
-main(path2)
-main(path)
+ 
+tic = time()
+#main(path2)
+#LEDGE_SEPARATION_DISTANCE = 0.8 # in ( just for this one run, everything else (future runs) should use the 0.577")
+#main(path)
+
+main_dir = input('Enter the directory that contains the test directories to be analyzed, or if this program is in said location, leave blank: ')
+if (main_dir is None): 
+    main_dir = './'            
+
+for dir_ in filter(lambda x: x[-4] is not '.', os.listdir(main_dir)):
+    main(dir_)
+
+print('complete, time elapsed: ' + str(time() - tic))
