@@ -123,9 +123,7 @@ def create_composite_image(ledge_path):
     f.close()
     ax1.add_patch(Circle(rotation_axis_xy, 5, color='y', fill=True))
     fig1.savefig(outputs+'\\'+'composite.png')
-    del(ax1)
-    del(fig1)
-    #plt.show(ax1)
+    plt.close('all')
     return cap_dist_from_rot_axis, avg_bore_diameter 
         
 def cutoff(x): 
@@ -140,7 +138,6 @@ def cutoff(x):
         for j in range(shp[1]):
             if (x[i,j] > THRESHOLD):
                 c[i,j] = 1
-
     return c
     
     
@@ -188,11 +185,10 @@ def get_circle_locations(image, name, outputs):
     except: 
         print('failed at ' + str(name))
         print('expected outputs ' + str(outputs))
+        print()
+        raise
  
 tic = time()
-#main(path2)
-#LEDGE_SEPARATION_DISTANCE = 0.8 # in ( just for this one run, everything else (future runs) should use the 0.577")
-#main(path)
 
 main_dir = input('Enter the directory that contains the test directories to be analyzed, or if this program is in said location, leave blank: ')
 if (main_dir is None): 
