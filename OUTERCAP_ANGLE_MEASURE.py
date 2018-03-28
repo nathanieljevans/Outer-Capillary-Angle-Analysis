@@ -16,7 +16,7 @@ from time import time
 path = "C:\\Users\\evans\\Documents\\OUTER_CAP_MEASUREMENT_PICS\\C017-3945_001"
 path2 = "C:\\Users\\evans\\Documents\\OUTER_CAP_MEASUREMENT_PICS\\C017-3945_002"
 
-THRESHOLD = 0.20 # For mask segmentation
+THRESHOLD = 0.25 # For mask segmentation
 LEDGE_SEPARATION_DISTANCE = 0.577 # in 
 UPPER_BORE_DIAM = 0.092 # in 
 LOWER_BORE_DIAM = 0.057 # in
@@ -128,11 +128,13 @@ def create_composite_image(ledge_path):
         
 def cutoff(x): 
     shp = x.shape
+    #THRESHOLD = np.mean(x) - 2*np.std(x)
 #    print('shape ' + str(shp))
 #    print('max ' + str(np.amax(x)))
 #    print('min ' + str(np.amin(x)))
 #    print('mean ' + str(np.mean(x)))
 #    print('std dev ' + str(np.std(x)))
+#    print('THRESHOLD: ' + str(THRESHOLD))
     c = np.zeros(shp)
     for i in range(shp[0]): 
         for j in range(shp[1]):
@@ -149,11 +151,11 @@ def get_circle_locations(image, name, outputs):
         smoothed = filters.gaussian(summed, 5)       
         
         mask = cutoff(smoothed)
-        
+       
         edges = filters.sobel(mask)
         
         # Detect two radii
-        hough_radii = np.arange(40, 75, 2)
+        hough_radii = np.arange(35, 75, 2)
         hough_res = trans.hough_circle(edges, hough_radii)
         
         # Select the most prominent 5 circles
@@ -164,7 +166,7 @@ def get_circle_locations(image, name, outputs):
         cap_r = radii[0]
         
         # Detect two radii
-        hough_radii = np.arange(200, 400, 2)
+        hough_radii = np.arange(100, 450, 2)
         hough_res = trans.hough_circle(edges, hough_radii)
         
         # Select the most prominent 5 circles
@@ -179,8 +181,7 @@ def get_circle_locations(image, name, outputs):
         ax1.add_patch(Circle((bore_x,bore_y),bore_r, color='r', fill=False))
         ax1.add_patch(Circle((cap_x,cap_y),cap_r, color='r', fill=False))
         fig1.savefig(outputs+'\\'+name[:-4]+'-circled.png')
-        del(ax1)
-        del(fig1)
+        plt.close('all')
         return (cap_x, cap_y, cap_r), (bore_x,bore_y,bore_r)
     except: 
         print('failed at ' + str(name))
@@ -188,6 +189,9 @@ def get_circle_locations(image, name, outputs):
         print()
         raise
  
+        
+#main('C:\\Users\\evans\\Documents\\OUTER_CAP_MEASUREMENT_PICS\\OCI-003\\C071-0000003972 (0.092-0.057)')
+
 tic = time()
 
 main_dir = input('Enter the directory that contains the test directories to be analyzed, or if this program is in said location, leave blank: ')
