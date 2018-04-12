@@ -7,7 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from skimage import filters
 import skimage.transform as trans
-from scipy import misc
+from scipy import misc,optimize
 from matplotlib.patches import Circle
 from os import listdir
 import os
@@ -16,12 +16,26 @@ from time import time
 path = "C:\\Users\\evans\\Documents\\OUTER_CAP_MEASUREMENT_PICS\\C017-3945_001"
 path2 = "C:\\Users\\evans\\Documents\\OUTER_CAP_MEASUREMENT_PICS\\C017-3945_002"
 
-THRESHOLD = 0.25 # For mask segmentation
+THRESHOLD = 0.20 # For mask segmentation
 LEDGE_SEPARATION_DISTANCE = 0.577 # in  -- use calibrated tool during data acq. procedure 
 UPPER_BORE_DIAM = 0.092 # in  -- original estimates, use only if no user input
 LOWER_BORE_DIAM = 0.057 # in  -- original estimates, use only if no user input
 
+# this still needs to get implemented. 
+CAPILLARY_DIAM_UP_BOUND = 60
+CAPILLARY_DIAM_LOW_BOUND = 30
+
+TOP_BORE_UP_BOUND = 400
+TOP_BORE_LOW_BOUND = 250
+
+LOWER_BORE_UP_BOUND = 210 
+LOWER_BORE_LOW_BOUND = 120
+
+TOP_BORE_THRESHOLD = 0.25
+LOWER_BORE_THRESHOLD = 0.15
+
 ''' 
+0.20 thresh works well for bottom but 0.25 works better for top
 This is some kind of documentation
 '''
 def main(example_path): 
@@ -35,7 +49,12 @@ def main(example_path):
     fig1, axarr = plt.subplots(ncols=1, nrows=2, figsize=(15, 15))
     for opt in DIRS:     
         if (opt[-4] is not '.'):
-            Delta_cap_xy, bore_diam, rcB, residu = create_composite_image(example_path+'\\'+opt, axarr[ii])
+            if (ii == 0): 
+                print("BOTTOM? " + str(opt))
+                Delta_cap_xy, bore_diam, rcB, residu = create_composite_image(example_path+'\\'+opt, axarr[ii], (LOWER_BORE_THRESHOLD,LOWER_BORE_LOW_BOUND,LOWER_BORE_UP_BOUND) )
+            else: 
+                print("TOP? " + str(opt))
+                Delta_cap_xy, bore_diam, rcB, residu = create_composite_image(example_path+'\\'+opt, axarr[ii], (TOP_BORE_THRESHOLD,TOP_BORE_LOW_BOUND,TOP_BORE_UP_BOUND) )
             rcs.append(rcB)
             residus.append(residu)
             deltas.append(Delta_cap_xy)
@@ -93,7 +112,7 @@ def dict_printer(dic, lvl):
         s += '[ ' + str(dic) + ' ]'
     return s 
         
-def create_composite_image(ledge_path, ax1): 
+def create_composite_image(ledge_path, ax1, specs): 
     outputs = ledge_path+'\\outputs'
     if  not os.path.isdir(outputs):
         os.makedirs(outputs)
@@ -110,7 +129,7 @@ def create_composite_image(ledge_path, ax1):
     bore_rads = []
     for img_path in img_paths: 
         if (img_path[-1]=='p'):
-            cap, bore = get_circle_locations(misc.imread(ledge_path+'\\'+ img_path), img_path, outputs)
+            cap, bore = get_circle_locations(misc.imread(ledge_path+'\\'+ img_path), img_path, outputs, specs)
             cap_loc.append(cap)
             cap_xs.append(cap[0])
             cap_ys.append(cap[1])
@@ -186,39 +205,40 @@ def create_composite_image(ledge_path, ax1):
     ax1.add_patch(Circle(rotation_axis_xy, 5, color='w', fill=True))
     return cap_dist_from_rot_axis, avg_bore_diameter, rcB, residuB
        
-def cutoff(x): 
+def cutoff(x, specs): 
     shp = x.shape
-    #THRESHOLD = np.mean(x) - 2*np.std(x)
+#    THRESHOLD = np.mean(x) - 2.5*np.std(x)
 #    print('shape ' + str(shp))
 #    print('max ' + str(np.amax(x)))
 #    print('min ' + str(np.amin(x)))
 #    print('mean ' + str(np.mean(x)))
 #    print('std dev ' + str(np.std(x)))
 #    print('THRESHOLD: ' + str(THRESHOLD))
+
     c = np.zeros(shp)
     for i in range(shp[0]): 
         for j in range(shp[1]):
-            if (x[i,j] > THRESHOLD):
+            if (x[i,j] > specs[0]):
                 c[i,j] = 1
     return c
     
     
-def get_circle_locations(image, name, outputs):
+def get_circle_locations(image, name, outputs, specs):
     try:
         summed = np.add(image[:,:,0], image[:,:,1])
         summed = np.add(summed, image[:,:,2])
 
         smoothed = filters.gaussian(summed, 5)       
         
-        mask = cutoff(smoothed)
+        mask = cutoff(smoothed, specs)
        
         edges = filters.sobel(mask)
         
         # Detect two radii
-        hough_radii = np.arange(35, 75, 2)
+        hough_radii = np.arange(CAPILLARY_DIAM_LOW_BOUND, CAPILLARY_DIAM_UP_BOUND, 2)
         hough_res = trans.hough_circle(edges, hough_radii)
         
-        # Select the most prominent 5 circles
+        # Select the most prominent 1 circles
         accums, cx, cy, radii = trans.hough_circle_peaks(hough_res, hough_radii,
                                                    total_num_peaks=1)
         cap_x = cx[0]
@@ -226,7 +246,7 @@ def get_circle_locations(image, name, outputs):
         cap_r = radii[0]
         
         # Detect two radii
-        hough_radii = np.arange(200, 450, 2)
+        hough_radii = np.arange(specs[1], specs[2], 2)
         hough_res = trans.hough_circle(edges, hough_radii)
         
         # Select the most prominent 5 circles
@@ -253,9 +273,6 @@ def get_circle_locations(image, name, outputs):
 TAKEN FROM : https://gist.github.com/lorenzoriano/6799568 -------------------------
 """ 
 
-from scipy import optimize
-from matplotlib import cm, colors
-
 def calc_R(x,y, xc, yc):
     """ calculate the distance of each 2D points from the center (xc, yc) """
     return np.sqrt((x-xc)**2 + (y-yc)**2)
@@ -276,25 +293,6 @@ def leastsq_circle(x,y):
     R        = Ri.mean()
     residu   = np.sum((Ri - R)**2)
     return xc, yc, R, residu
-
-def plot_data_circle(x,y, xc, yc, R):
-    f = plt.figure( facecolor='white')  #figsize=(7, 5.4), dpi=72,
-    plt.axis('equal')
-
-    theta_fit = np.linspace(-pi, pi, 180)
-
-    x_fit = xc + R*np.cos(theta_fit)
-    y_fit = yc + R*np.sin(theta_fit)
-    plt.plot(x_fit, y_fit, 'b-' , label="fitted circle", lw=2)
-    plt.plot([xc], [yc], 'bD', mec='y', mew=1)
-    plt.xlabel('x')
-    plt.ylabel('y')   
-    # plot data
-    plt.plot(x, y, 'r-.', label='data', mew=1)
-
-    plt.legend(loc='best',labelspacing=0.1 )
-    plt.grid()
-    plt.title('Least Squares Circle')
     
 """ 
 -----------------------------------------------------------------------------
