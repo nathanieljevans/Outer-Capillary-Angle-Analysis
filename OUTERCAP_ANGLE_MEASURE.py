@@ -12,11 +12,8 @@ from matplotlib.patches import Circle
 from os import listdir
 import os
 from time import time
+from math import factorial
 
-path = "C:\\Users\\evans\\Documents\\OUTER_CAP_MEASUREMENT_PICS\\C017-3945_001"
-path2 = "C:\\Users\\evans\\Documents\\OUTER_CAP_MEASUREMENT_PICS\\C017-3945_002"
-
-THRESHOLD = 0.20 # For mask segmentation
 LEDGE_SEPARATION_DISTANCE = 0.577 # in  -- use calibrated tool during data acq. procedure 
 UPPER_BORE_DIAM = 0.092 # in  -- original estimates, use only if no user input
 LOWER_BORE_DIAM = 0.057 # in  -- original estimates, use only if no user input
@@ -31,8 +28,8 @@ TOP_BORE_LOW_BOUND = 250
 LOWER_BORE_UP_BOUND = 210 
 LOWER_BORE_LOW_BOUND = 120
 
-TOP_BORE_THRESHOLD = 0.25 # was .25
-LOWER_BORE_THRESHOLD = 0.20
+TOP_BORE_THRESHOLD = 0.3 # was .25
+LOWER_BORE_THRESHOLD = 0.2 #0.2 was over sat
 
 ''' 
 0.20 thresh works well for bottom but 0.25 works better for top
@@ -207,21 +204,67 @@ def create_composite_image(ledge_path, ax1, specs):
        
 def cutoff(x, specs): 
     shp = x.shape
-#    THRESHOLD = np.mean(x) - 2.5*np.std(x)
+#    THRESHOLD = np.amin(x) + 0.05
 #    print('shape ' + str(shp))
 #    print('max ' + str(np.amax(x)))
 #    print('min ' + str(np.amin(x)))
 #    print('mean ' + str(np.mean(x)))
 #    print('std dev ' + str(np.std(x)))
-#    print('THRESHOLD: ' + str(THRESHOLD))
+    #print('THRESHOLD: ' + str(THRESHOLD))
+    
+#    fx_unsmoothed = x.flatten()
+#    fx_unsmoothed.sort()
+#    fx = savitzky_golay(fx_unsmoothed)
+#    
+#    d_fx = np.gradient(fx)
+##    d2_fx = np.gradient(d_fx)
+##    max_curve = np.amax(d2_fx[np.where(fx >= 0.3)[0][0] : np.where(fx >= 0.7)[0][0]])
+##    a_val = fx[np.where(d2_fx == max_curve)[0][0]]
+#
+#    # want the first point after it's peak at which the deriv is X% of it's max val 
+#    dfx_peak_i = np.where(d_fx == np.amax(d_fx))[0]
+#    
+#    print('dfx peak ' + str(dfx_peak_i))
+#    eop_is = np.where(d_fx <= 0.1*np.amax(d_fx))
+#    print(eop_is)
+#    eop_i = -1
+#    for i in eop_is[0]: 
+#        if (i >= dfx_peak_i): 
+#            eop_i = i
+#            break
+#        
+#    fx_mid = (fx[int(eop_i)] - fx[0])/2 + fx[0]
+#            
+#    print('even out point index ' + str(eop_i))
+#    eop_dfx = d_fx[eop_i]
+#    eop_fx = fx[eop_i]
+#    
+#    print('even out point (dfx, fx): ' + str( (eop_dfx, eop_fx)))
+##    print("a val: " + str(a_val))
+#    THRESHOLD = fx_mid
+#    plt.plot(fx,color='g' )
+#    plt.plot(fx_unsmoothed,color='r')
+##    plt.plot([a_val]*len(fx),color='y')
+#    plt.plot([eop_fx]*len(fx),color='r')
+#    plt.plot([fx_mid]*len(fx),color='g')
+#    plt.show()
+#    plt.plot(d_fx,color='b')
+#    plt.plot([eop_dfx]*len(fx),color='r')
+#    plt.show()
 
+    THRESHOLD = specs[0]
     c = np.zeros(shp)
     for i in range(shp[0]): 
         for j in range(shp[1]):
-            if (x[i,j] > specs[0]):
+            if (x[i,j] > THRESHOLD):
                 c[i,j] = 1
     return c
-    
+        
+def normalize(v):
+    norm = np.linalg.norm(v)
+    if norm == 0: 
+       return v
+    return v / norm      
     
 def get_circle_locations(image, name, outputs, specs):
     try:
@@ -231,7 +274,9 @@ def get_circle_locations(image, name, outputs, specs):
         smoothed = filters.gaussian(summed, 5)       
         
         mask = cutoff(smoothed, specs)
-       
+        plt.imshow(mask)
+        plt.show()
+        
         edges = filters.sobel(mask)
         
         # Detect two radii
@@ -252,6 +297,7 @@ def get_circle_locations(image, name, outputs, specs):
         # Select the most prominent 5 circles
         accums, cx, cy, radii = trans.hough_circle_peaks(hough_res, hough_radii,
                                                    total_num_peaks=1)
+        print("accums, cx, cy, radii " + str( (accums, cx, cy, radii) ))
         bore_x = cx[0]
         bore_y = cy[0]
         bore_r = radii[0]
@@ -296,7 +342,83 @@ def leastsq_circle(x,y):
     
 """ 
 -----------------------------------------------------------------------------
+VVV taken from: http://scipy.github.io/old-wiki/pages/Cookbook/SavitzkyGolay
 """ 
+
+def savitzky_golay(y, window_size=100001, order=1, deriv=0, rate=1):
+    r"""Smooth (and optionally differentiate) data with a Savitzky-Golay filter.
+    The Savitzky-Golay filter removes high frequency noise from data.
+    It has the advantage of preserving the original shape and
+    features of the signal better than other types of filtering
+    approaches, such as moving averages techniques.
+    Parameters
+    ----------
+    y : array_like, shape (N,)
+        the values of the time history of the signal.
+    window_size : int
+        the length of the window. Must be an odd integer number.
+    order : int
+        the order of the polynomial used in the filtering.
+        Must be less then `window_size` - 1.
+    deriv: int
+        the order of the derivative to compute (default = 0 means only smoothing)
+    Returns
+    -------
+    ys : ndarray, shape (N)
+        the smoothed signal (or it's n-th derivative).
+    Notes
+    -----
+    The Savitzky-Golay is a type of low-pass filter, particularly
+    suited for smoothing noisy data. The main idea behind this
+    approach is to make for each point a least-square fit with a
+    polynomial of high order over a odd-sized window centered at
+    the point.
+    Examples
+    --------
+    t = np.linspace(-4, 4, 500)
+    y = np.exp( -t**2 ) + np.random.normal(0, 0.05, t.shape)
+    ysg = savitzky_golay(y, window_size=31, order=4)
+    import matplotlib.pyplot as plt
+    plt.plot(t, y, label='Noisy signal')
+    plt.plot(t, np.exp(-t**2), 'k', lw=1.5, label='Original signal')
+    plt.plot(t, ysg, 'r', label='Filtered signal')
+    plt.legend()
+    plt.show()
+    References
+    ----------
+    .. [1] A. Savitzky, M. J. E. Golay, Smoothing and Differentiation of
+       Data by Simplified Least Squares Procedures. Analytical
+       Chemistry, 1964, 36 (8), pp 1627-1639.
+    .. [2] Numerical Recipes 3rd Edition: The Art of Scientific Computing
+       W.H. Press, S.A. Teukolsky, W.T. Vetterling, B.P. Flannery
+       Cambridge University Press ISBN-13: 9780521880688
+    """
+    
+    try:
+        window_size = np.abs(np.int(window_size))
+        order = np.abs(np.int(order))
+    except ValueError:
+        raise ValueError("window_size and order have to be of type int")
+    if window_size % 2 != 1 or window_size < 1:
+        raise TypeError("window_size size must be a positive odd number")
+    if window_size < order + 2:
+        raise TypeError("window_size is too small for the polynomials order")
+    order_range = range(order+1)
+    half_window = (window_size -1) // 2
+    # precompute coefficients
+    b = np.mat([[k**i for i in order_range] for k in range(-half_window, half_window+1)])
+    m = np.linalg.pinv(b).A[deriv] * rate**deriv * factorial(deriv)
+    # pad the signal at the extremes with
+    # values taken from the signal itself
+    firstvals = y[0] - np.abs( y[1:half_window+1][::-1] - y[0] )
+    lastvals = y[-1] + np.abs(y[-half_window-1:-1][::-1] - y[-1])
+    y = np.concatenate((firstvals, y, lastvals))
+    return np.convolve( m[::-1], y, mode='valid')
+    
+    """ 
+    ___________________________________________________
+    """
+
 
 #main('C:\\Users\\evans\\Documents\\OUTER_CAP_MEASUREMENT_PICS\\OCI-003\\C071-0000003972 (0.092-0.057)')
 
