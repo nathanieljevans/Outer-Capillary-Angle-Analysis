@@ -80,8 +80,8 @@ def main(example_path):
     vals['upper ledge']['DX-in'] = vals["upper ledge"]['px map']*vals['upper ledge']['DX']
     vals['upper ledge']['DY-in'] = vals["upper ledge"]['px map']*vals['upper ledge']['DY']
 
-    vals['lower ledge']['DX-in'] = vals["lower ledge"]['px map']*vals['upper ledge']['DX']
-    vals['lower ledge']['DY-in'] = vals["lower ledge"]['px map']*vals['upper ledge']['DY']
+    vals['lower ledge']['DX-in'] = vals["lower ledge"]['px map']*vals['lower ledge']['DX']
+    vals['lower ledge']['DY-in'] = vals["lower ledge"]['px map']*vals['lower ledge']['DY']
 
     vals['angle_x'] = np.degrees(np.arctan( ( vals['upper ledge']['DX-in'] - vals['lower ledge']['DX-in'] ) / LEDGE_SEPARATION_DISTANCE)) 
     vals['angle_y'] = np.degrees(np.arctan( ( vals['upper ledge']['DY-in'] - vals['lower ledge']['DY-in'] ) / LEDGE_SEPARATION_DISTANCE)) 
@@ -159,8 +159,6 @@ def create_composite_image(ledge_path, ax1, specs):
             
      # see how well fit the circle is... ie was it rotated concentricly or was it bumped/shifted during rot
     try: 
-        check_rot_points_tightness(cap_xs, cap_ys)
-        check_rot_points_tightness(bore_xs, bore_ys)
         xcC,ycC,rC,residuC = leastsq_circle(cap_xs, cap_ys)
         xcB, ycB, rcB, residuB = leastsq_circle(bore_xs, bore_ys)
         print('\tcap : ' + str([xcC,ycC,rC,residuC]))

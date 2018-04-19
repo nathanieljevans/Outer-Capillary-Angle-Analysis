@@ -31,7 +31,7 @@ UPPER_BORE_SPECS = (250, 400, 0.3)
 
 
 class OC_example(object):
-    def __init__(self, OCA_ID, carrier_ID, upper_bore_ID, lower_bore_ID, ledge_separation, example_path):
+    def __init__(self, OCA_ID, carrier_ID, upper_bore_ID=UPPER_BORE_DIAM, lower_bore_ID=LOWER_BORE_DIAM, ledge_separation=LEDGE_SEPARATION_DISTANCE, example_path=''):
         self.OCA = OCA_ID
         self.carrier = carrier_ID 
         self.upper_bore = upper_bore_ID
@@ -60,7 +60,7 @@ class OC_example(object):
                     raise TypeError("Too many folders in the ledge directory; There should only be a top and bottom folder (total 2)")
                     raise
                 
-    def calculate_example_features(self): 
+    def calculate_angle(self): 
         lower = {"DX" : self.bottom_ledge.cap_dist_from_rot_axis[0], 
                  "DY" : self.bottom_ledge.cap_dist_from_rot_axis[1], 
                 "bore diam" : self.bottom_ledge.avg_bore_diameter, 
@@ -84,8 +84,8 @@ class OC_example(object):
         vals['upper ledge']['DX-in'] = vals["upper ledge"]['px map']*vals['upper ledge']['DX']
         vals['upper ledge']['DY-in'] = vals["upper ledge"]['px map']*vals['upper ledge']['DY']
     
-        vals['lower ledge']['DX-in'] = vals["lower ledge"]['px map']*vals['upper ledge']['DX']
-        vals['lower ledge']['DY-in'] = vals["lower ledge"]['px map']*vals['upper ledge']['DY']
+        vals['lower ledge']['DX-in'] = vals["lower ledge"]['px map']*vals['lower ledge']['DX']
+        vals['lower ledge']['DY-in'] = vals["lower ledge"]['px map']*vals['lower ledge']['DY']
     
         vals['angle_x'] = np.degrees(np.arctan( ( vals['upper ledge']['DX-in'] - vals['lower ledge']['DX-in'] ) / LEDGE_SEPARATION_DISTANCE)) 
         vals['angle_y'] = np.degrees(np.arctan( ( vals['upper ledge']['DY-in'] - vals['lower ledge']['DY-in'] ) / LEDGE_SEPARATION_DISTANCE)) 
@@ -101,11 +101,35 @@ class OC_example(object):
             f.write(dict_printer(vals, 0))
         except:
             raise TypeError("Dictionary failed to print to file at example: " + str(self.path))
+            raise
+            
         f.close()
+        return (self.angle_x, self.angle_y)
+                    
+    def calculate_offset(self):
+        x1 = self.upper_ledge.cap_dist_from_rot_axis[0]
+        y1 = 1.5 # in - distance from lead in to upper ledge
+        x2 = self.bottom_ledge.cap_dist_from_rot_axis[0]
+        y2 = y1 - LEDGE_SEPARATION_DISTANCE # distance from lead in to lower ledge     
+        m = (y2-y1) / (x2 - x1)
+        b = y1 - m * x1 
+        self.inlet_offset = -b/m
+        
+        f = open(self.path+'\\angle_calc-' + (self.path.split('\\')[-1]).replace('.','').replace(' ','') +'.txt', 'a')
+        f.write('inlet offset: ' + str(self.inlet_offset))
+        f.close()
+        
+        
+    def generate_and_save_plots(self): 
+        self.fig.suptitle('OCA: ' + self.OCA + ' - Carrier: ' + self.carrier + 
+                          '\nDate: ' + str(self.date) + 
+                          '\nX Angle: ' + str(self.angle_x) + 
+                          '\nRot. Axis - Cap. Inlet X offset: ' + str(self.inlet_offset))
+        self.fig.savefig(self.path + '\\' + 'outputs-' + str(self.date) + '.png')
+        
                     
                     
-                    
-                
+
 
 class ledge_set(object): 
     def __init__(self, path, axes, specs):
