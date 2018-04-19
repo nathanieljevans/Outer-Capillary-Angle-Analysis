@@ -60,6 +60,52 @@ class OC_example(object):
                     raise TypeError("Too many folders in the ledge directory; There should only be a top and bottom folder (total 2)")
                     raise
                 
+    def calculate_example_features(self): 
+        lower = {"DX" : self.bottom_ledge.cap_dist_from_rot_axis[0], 
+                 "DY" : self.bottom_ledge.cap_dist_from_rot_axis[1], 
+                "bore diam" : self.bottom_ledge.avg_bore_diameter, 
+                "rotation axis residue" : self.lower_ledge.residuB, 
+                "rotation path radius" : self.lower_ledge.rcB, 
+                "descrip" : "lower ledge values"}
+        
+        upper = {"DX" : self.upper_ledge.cap_dist_from_rot_axis[0], 
+                 "DY" : self.upper_ledge.cap_dist_from_rot_axis[1], 
+                "bore diam" : self.upper_ledge.avg_bore_diameter, 
+                "rotation axis residue" : self.upper_ledge.residuB, 
+                "rotation path radius" : self.upper_ledge.rcB, 
+                "descrip" : "upper ledge values"}
+        
+        vals = {"upper ledge" : upper, "lower ledge" : lower, "Description " : "DX, DY, bore diam"}
+        
+        # get conversion from pixels to in
+        vals["upper ledge"]['px map'] = UPPER_BORE_DIAM / vals['upper ledge']['bore diam']
+        vals['lower ledge']['px map'] = LOWER_BORE_DIAM / vals['lower ledge']['bore diam']
+    
+        vals['upper ledge']['DX-in'] = vals["upper ledge"]['px map']*vals['upper ledge']['DX']
+        vals['upper ledge']['DY-in'] = vals["upper ledge"]['px map']*vals['upper ledge']['DY']
+    
+        vals['lower ledge']['DX-in'] = vals["lower ledge"]['px map']*vals['upper ledge']['DX']
+        vals['lower ledge']['DY-in'] = vals["lower ledge"]['px map']*vals['upper ledge']['DY']
+    
+        vals['angle_x'] = np.degrees(np.arctan( ( vals['upper ledge']['DX-in'] - vals['lower ledge']['DX-in'] ) / LEDGE_SEPARATION_DISTANCE)) 
+        vals['angle_y'] = np.degrees(np.arctan( ( vals['upper ledge']['DY-in'] - vals['lower ledge']['DY-in'] ) / LEDGE_SEPARATION_DISTANCE)) 
+        self.angle_x = vals['angle_x']
+        self.angle_y = vals['angle_y']
+    
+        vals['upper ledge']['mapped rotation path radius'] = vals['upper ledge']['rotation path radius']*vals['upper ledge']['px map']
+        vals['lower ledge']['mapped rotation path radius'] = vals['lower ledge']['rotation path radius']*vals['lower ledge']['px map']
+    
+        f = open(self.path+'\\angle_calc-' + (self.path.split('\\')[-1]).replace('.','').replace(' ','') +'.txt', 'w')
+
+        try:
+            f.write(dict_printer(vals, 0))
+        except:
+            raise TypeError("Dictionary failed to print to file at example: " + str(self.path))
+        f.close()
+                    
+                    
+                    
+                
 
 class ledge_set(object): 
     def __init__(self, path, axes, specs):
