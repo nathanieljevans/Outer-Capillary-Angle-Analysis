@@ -5,13 +5,28 @@ Created on Thu Apr 19 09:10:03 2018
 @author: evans
 """
 import numpy as np
+import matplotlib.pyplot as plt
+from skimage import filters,color
+import skimage.transform as trans
+from scipy import misc,optimize
+from matplotlib.patches import Circle
+from os import listdir
+import os
+from time import time
 from math import factorial
 from datetime import date
-from matplotlib import pyplot as plt
 
+LEDGE_SEPARATION_DISTANCE = 0.577 # in  -- use calibrated tool during data acq. procedure 
+UPPER_BORE_DIAM = 0.092 # in  -- original estimates, use only if no user input
+LOWER_BORE_DIAM = 0.057 # in  -- original estimates, use only if no user input
 
+# this still needs to get implemented. 
+CAPILLARY_DIAM_UP_BOUND = 60
+CAPILLARY_DIAM_LOW_BOUND = 30
 
-
+# (radius lower bound, radius upper bound, threshold)
+LOWER_BORE_SPECS = (120, 210, 0.3)
+UPPER_BORE_SPECS = (250, 400, 0.3)
 
 
 
@@ -24,29 +39,36 @@ class OC_example(object):
         self.ledge_separation = ledge_separation
         self.path = example_path
         self.date = date.today()
+        self.fig, self.axarr = plt.subplots(ncols=2, nrows=5, figsize=(30, 15))
+        self.ax_i = 0
         print("OCA ID: " + str(OCA_ID) + "  -  Carrier_ID: " + str(carrier_ID))
-        
         
     def load_images(self): 
          DIRS = os.listdir(self.example_path)
          ii=0
          for opt in DIRS:     
-        if (opt[-4] is not '.'):
-            if (ii == 0): 
-                print("\tBOTTOM? " + str(opt))
+            if (opt[-4] is not '.'):
+                if (ii == 0): 
+                    print("\tBOTTOM? " + str(opt))
+                    self.bottom_ledge = ledge_set(self.example_path + '\\' + opt, self.axarr[ self.axarr[0:6] ], LOWER_BORE_SPECS)
+                    
+                if (ii == 1):
+                    print("\tTOP? " + str(opt))
+                    self.upper_ledge = ledge_set(self.example_path + '\\' + opt, self.axarr[ self.axarr[6:] ], UPPER_BORE_SPECS)
+                    
+                else: 
+                    raise TypeError("Too many folders in the ledge directory; There should only be a top and bottom folder (total 2)")
+                    raise
                 
-                
-            else: 
-                print("\tTOP? " + str(opt))
-                Delta_cap_xy, bore_diam, rcB, residu = create_composite_image(example_path+'\\'+opt, axarr[ii], (TOP_BORE_THRESHOLD,TOP_BORE_LOW_BOUND,TOP_BORE_UP_BOUND) )
-    
 
 class ledge_set(object): 
-    def __init__(self, path, name, axes):
-        self.name = name # upper/lower
+    def __init__(self, path, axes, specs):
+        self.name = path.split('\\')[-1]    # upper/lower
         self.path = path
         self.imgs = []
-        self.axes = axes
+        self.axes = axes[0]
+        self.img_axes = axes[1:]
+        self.specs = specs
         
         self.cap_xs = []
         self.cap_ys = [] 
@@ -56,15 +78,23 @@ class ledge_set(object):
         self.bore_ys = []
         self.bore_rads = []
         
-    def assign_img(self, img): 
-        imgs.append(img)
+    def load_imgs(self):
+        img_names = os.listdir(self.path)
+        i = 0
+        for name in img_names: 
+            if (name[-1]=='p'):            
+                self.imgs.append( image(self.path + '\\' + name, self.img_axes[i], self.specs) )
+                i+=1 
+        if (i != 4): 
+            raise TypeError("Too few or too many images in ledge set folder: " + str(self.name))
+            raise
     
     def calculate_ledge_features(self):
         
         # capillary analysis-XXX() needs to have been run before this method can function
         try:
             for img in self.imgs: 
-                self.cap_xs.append(img.cap_x])
+                self.cap_xs.append(img.cap_x)
                 self.cap_ys.append(img.cap_y)
                 self.cap_rads.append(img.cap_r)
                 
@@ -93,31 +123,31 @@ class ledge_set(object):
             dy = y-y_ref
             self.cap_xs[i] = x-dx 
             self.cap_ys[i] = y-dy
-            self.bore_xs[i] = bore_xs[i]-dx
-            self.bore_ys[i] = bore_ys[i]-dy
+            self.bore_xs[i] = self.bore_xs[i]-dx
+            self.bore_ys[i] = self.bore_ys[i]-dy
                 
          # see how well fit the circle is... ie was it rotated concentricly or was it bumped/shifted during rot
          # if the rot points are too tightly clustered (ie extremely concentric rotation) then the best fit circle plots it as a line (massive circle)
          # to fix it, check to see if its tightly clustered, if it is, don't do a circle fit
         try: 
             print('\tCalculating rotation axis...')
-            self.xcC,self.ycC,self.rC,self.residuC = leastsq_circle(cap_xs, cap_ys)
+            self.xcC,self.ycC,self.rC,self.residuC = leastsq_circle(self.cap_xs, self.cap_ys)
             if (check_rot_points_tightness(self.bore_xs, self.bore_ys)): 
-                self.xcB = np.average(bore_xs)
-                self.ycB = np.average(bore_ys)
-                self.rcB = ( np.std(bore_xs) + np.std(bore_ys) ) / 2 
+                self.xcB = np.average(self.bore_xs)
+                self.ycB = np.average(self.bore_ys)
+                self.rcB = ( np.std(self.bore_xs) + np.std(self.bore_ys) ) / 2 
                 self.residuB = -1
             else: 
-                self.xcB, self.ycB, self.rcB, self.residuB = leastsq_circle(bore_xs, bore_ys) 
+                self.xcB, self.ycB, self.rcB, self.residuB = leastsq_circle(self.bore_xs, self.bore_ys) 
         except: 
             raise ValueError('Failed trying to calculate the least sq best fit circle for cap and bore rot.')
             raise
                 
         #rotation_axis_xy = ((max(bore_xs) + min(bore_xs)) / 2, (max(bore_ys) + min(bore_ys)) / 2)
-        rotation_axis_xy = (xcB,ycB)
-        avg_cap_xy = ( (sum(cap_xs)/len(cap_xs)),(sum(cap_ys)/len(cap_ys))  )
-        cap_dist_from_rot_axis = ( abs(rotation_axis_xy[0] - avg_cap_xy[0]), abs(rotation_axis_xy[1] - avg_cap_xy[1]) ) 
-        avg_bore_diameter = 2* (sum(bore_rads) / len(bore_rads))
+        rotation_axis_xy = (self.xcB,self.ycB)
+        avg_cap_xy = ( (sum(self.cap_xs)/len(self.cap_xs)),(sum(self.cap_ys)/len(self.cap_ys))  )
+        self.cap_dist_from_rot_axis = ( abs(rotation_axis_xy[0] - avg_cap_xy[0]), abs(rotation_axis_xy[1] - avg_cap_xy[1]) ) 
+        self.avg_bore_diameter = 2* (sum(self.bore_rads) / len(self.bore_rads))
         
             
         for cx,cy,cr,bx,by,br in zip(self.cap_xs, self.cap_ys, self.cap_rads, self.bore_xs, self.bore_ys, self.bore_rads):
@@ -125,23 +155,24 @@ class ledge_set(object):
             self.axes.add_patch(Circle((cx,cy),cr, color='g', fill=False))
             self.axes.add_patch(Circle((bx,by),br, color='g', fill=False))
             #add bore xc xy as yellow 
-            ax1.add_patch(Circle((bx,by),5, color='y', fill=True))
+            self.axes.add_patch(Circle((bx,by),5, color='y', fill=True))
             #add bore rotation path as yellow 
-            ax1.add_patch(Circle((self.xcB,self.ycB),self.rcB,color='y',fill=False))
+            self.axes.add_patch(Circle((self.xcB,self.ycB),self.rcB,color='y',fill=False))
         
         # add rotation center in white
-        axes.add_patch(Circle(rotation_axis_xy, 5, color='w', fill=True))
+        self.axes.add_patch(Circle(rotation_axis_xy, 5, color='w', fill=True))
 
 
 class image(object): 
-    def __init__(self, path, ax): 
+    def __init__(self, path, ax, specs): 
         self.path = path
         self.name = path.split('\\')[-1]
         self.img = plt.imread(path)
         self.axes = ax
+        self.specs = specs
     
     # works well for variable light conditions and low contrast
-    def analyze-otsu(self): 
+    def analyze_otsu(self): 
         try:        
             # convert to grey 
             grey = color.rgb2gray(self.img)
@@ -169,7 +200,7 @@ class image(object):
             self.cap_r = radii[0]
             
             # Detect two radii
-            hough_radii = np.arange(specs[1], specs[2], 2)
+            hough_radii = np.arange(self.specs[1], self.specs[2], 2)
             hough_res = trans.hough_circle(edges, hough_radii)
             
             # Select the most prominent circle
@@ -181,12 +212,11 @@ class image(object):
             self.bore_r = radii[0]
         
             self.axes.imshow(image)
-            self.axes.add_patch(Circle((bore_x,bore_y),bore_r, color='r', fill=False))
-            self.axes.add_patch(Circle((cap_x,cap_y),cap_r, color='r', fill=False))
+            self.axes.add_patch(Circle((self.bore_x,self.bore_y), self.bore_r, color='r', fill=False))
+            self.axes.add_patch(Circle((self.cap_x,self.cap_y), self.cap_r, color='r', fill=False))
             
         except: 
-            print('Failed at: ' + str(self.name))
-            print('path: ' + str(self.path) + '\n')
+            raise ValueError("Failed during Otsu analysis of img: " + str(self.name))
             raise 
             
     # basic thresholding that works well for low exposure, high contrast photos
@@ -197,7 +227,7 @@ class image(object):
         
             smoothed = filters.gaussian(summed, 5)       
             
-            mask = cutoff(smoothed, specs)
+            mask = cutoff(smoothed, self.specs)
             
             edges = filters.sobel(mask)
             
@@ -206,32 +236,29 @@ class image(object):
             hough_res = trans.hough_circle(edges, hough_radii)
             
             # Select the most prominent 1 circles
-            accums, cx, cy, radii = trans.hough_circle_peaks(hough_res, hough_radii,
-                                                       total_num_peaks=1)
+            accums, cx, cy, radii = trans.hough_circle_peaks(hough_res, hough_radii, total_num_peaks=1)
             self.cap_x = cx[0]
             self.cap_y = cy[0]
             self.cap_r = radii[0]
             
             # Detect two radii
-            hough_radii = np.arange(specs[1], specs[2], 2)
+            hough_radii = np.arange(self.specs[1], self.specs[2], 2)
             hough_res = trans.hough_circle(edges, hough_radii)
             
             # Select the most prominent 5 circles
-            accums, cx, cy, radii = trans.hough_circle_peaks(hough_res, hough_radii,
-                                                       total_num_peaks=1)
-            print("accums, cx, cy, radii " + str( (accums, cx, cy, radii) ))
+            accums, cx, cy, radii = trans.hough_circle_peaks(hough_res, hough_radii, total_num_peaks=1)
+            print("bore - accums, cx, cy, radii " + str( (accums, cx, cy, radii) ))
             self.bore_x = cx[0]
             self.bore_y = cy[0]
             self.bore_r = radii[0]
         
             self.axes.imshow(image)
-            self.axes.add_patch(Circle((bore_x,bore_y),bore_r, color='r', fill=False))
-            self.axes.add_patch(Circle((cap_x,cap_y),cap_r, color='r', fill=False))
+            self.axes.add_patch(Circle((self.bore_x, self.bore_y), self.bore_r, color='r', fill=False))
+            self.axes.add_patch(Circle((self.cap_x, self.cap_y), self.cap_r, color='r', fill=False))
             
         except: 
-            print('Failed at: ' + str(self.name))
-                print('path: ' + str(self.path) + '\n')
-                raise 
+            raise ValueError("Failed during lowexp analysis of img: " + str(self.name))
+            raise 
 
         
         
@@ -250,6 +277,32 @@ class image(object):
         ''' 
         ---------------------------- additional methods -----------------------
         ''' 
+        
+        """ 
+TAKEN FROM : https://gist.github.com/lorenzoriano/6799568 -------------------------
+""" 
+
+def calc_R(x,y, xc, yc):
+    """ calculate the distance of each 2D points from the center (xc, yc) """
+    return np.sqrt((x-xc)**2 + (y-yc)**2)
+
+def f(c, x, y):
+    """ calculate the algebraic distance between the data points and the mean circle centered at c=(xc, yc) """
+    Ri = calc_R(x, y, *c)
+    return Ri - Ri.mean()
+
+def leastsq_circle(x,y):
+    # coordinates of the barycenter
+    x_m = np.mean(x)
+    y_m = np.mean(y)
+    center_estimate = x_m, y_m
+    center, ier = optimize.leastsq(f, center_estimate, args=(x,y))
+    xc, yc = center
+    Ri       = calc_R(x, y, *center)
+    R        = Ri.mean()
+    residu   = np.sum((Ri - R)**2)
+    return xc, yc, R, residu
+        
         
 def cutoff(x, specs): 
     shp = x.shape
