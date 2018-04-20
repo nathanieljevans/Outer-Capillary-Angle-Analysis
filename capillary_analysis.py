@@ -51,6 +51,44 @@ class OC_example(object):
             axs.append(ax)
         self.axarr = axs    
         
+    def print_output_line(self): 
+        line = [self.carrier,
+                self.OCA, 
+                self.angle_x,
+                self.angle_y, 
+                self.inlet_offset, 
+                self.upper_ledge.cap_dist_from_rot_axis, 
+                self.upper_ledge.avg_bore_diameter,
+                self.upper_ledge.bore_diam_std,
+                self.upper_ledge.cap_diam_std,
+                self.upper_ledge.residuB,
+                self.bottom_ledge.cap_dist_from_rot_axis, 
+                self.bottom_ledge.avg_bore_diameter,
+                self.bottom_ledge.bore_diam_std,
+                self.bottom_ledge.cap_diam_std,    
+                self.bottom_ledge.residuB] 
+        return line 
+        
+    def get_output_header(): 
+        header = ['carrier id',
+                  'oca id', 
+                  'angle x',
+                  'angle y', 
+                  'OC inlet - rot axis offset', 
+                  'upper bore cap dist from rot axis',
+                  'upper bore avg bore diam',
+                  'upper bore bore diam std',
+                  'upper bore cap diam std',
+                  'upper bore bore residue',
+                  'lower bore cap dist from rot axis',
+                  'lower bore avg bore diam',
+                  'lower bore bore diam std',
+                  'lower bore cap diam std',
+                  'lower bore bore residue']
+        return header
+        
+        
+        
     def load_images(self): 
          DIRS = os.listdir(self.path)
          ii=0
@@ -94,7 +132,7 @@ class OC_example(object):
     
         vals['lower ledge']['DX-in'] = vals["lower ledge"]['px map']*vals['lower ledge']['DX']
         vals['lower ledge']['DY-in'] = vals["lower ledge"]['px map']*vals['lower ledge']['DY']
-    
+
         vals['angle_x'] = np.degrees(np.arctan( ( vals['upper ledge']['DX-in'] - vals['lower ledge']['DX-in'] ) / LEDGE_SEPARATION_DISTANCE)) 
         vals['angle_y'] = np.degrees(np.arctan( ( vals['upper ledge']['DY-in'] - vals['lower ledge']['DY-in'] ) / LEDGE_SEPARATION_DISTANCE)) 
         self.angle_x = vals['angle_x']
@@ -245,7 +283,8 @@ class ledge_set(object):
         avg_cap_xy = ( (sum(self.cap_xs)/len(self.cap_xs)),(sum(self.cap_ys)/len(self.cap_ys))  )
         self.cap_dist_from_rot_axis = ( abs(rotation_axis_xy[0] - avg_cap_xy[0]), abs(rotation_axis_xy[1] - avg_cap_xy[1]) ) 
         self.avg_bore_diameter = 2* (sum(self.bore_rads) / len(self.bore_rads))
-        
+        self.bore_diam_std = np.std(self.bore_rads)
+        self.cap_diam_std = np.std(self.cap_rads)
             
         for cx,cy,cr,bx,by,br in zip(self.cap_xs, self.cap_ys, self.cap_rads, self.bore_xs, self.bore_ys, self.bore_rads):
             #add aligned capillary and bore positions in green

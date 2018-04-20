@@ -10,6 +10,7 @@ handle user input and data output
 from time import time
 import capillary_analysis as ca
 import os 
+import csv
 
 def main(): 
     tic = time()
@@ -18,9 +19,11 @@ def main():
     print('where X=carrier ID, Y=OCA_ID, A=upper_bore_diam (in), B=lower_bore_diam, 001-batch_iteration')
     print('example: B05-3963-0.096-0.053-001')
     main_dir = input('Enter the directory that contains the example directories to be analyzed: ')
-       
+
+    f = open(main_dir + '\\all_outputs.csv', 'w')
+    writer = csv.writer(f)
+    writer.writerow(ca.OC_example.get_output_header())
     
-              
     for dir_ in filter(lambda x: x[-4] is not '.', os.listdir(main_dir)):
         print('Beginning dataset: ' + str(dir_))
         OCA, CAR, UB_D, LB_D = parse_dir_name(dir_)
@@ -30,6 +33,8 @@ def main():
         example.calculate_angle()
         example.calculate_offset()
         example.generate_and_save_plots()
+        writer.writerow(example.print_output_line())
+    f.close()
         
     
     print('complete, time elapsed: ' + str(time() - tic)) 
@@ -37,8 +42,8 @@ def main():
 def parse_dir_name(name): 
     try: 
         vals = name.split('-')
-        OCA = vals[0]
-        car = vals[1]
+        car = vals[0]
+        OCA = vals[1]
         up_diam = vals[2]
         low_diam = vals[3]
         return OCA, car, up_diam, low_diam
