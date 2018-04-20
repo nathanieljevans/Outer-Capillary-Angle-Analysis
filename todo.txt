@@ -1,0 +1,17 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Thu Apr 19 18:27:27 2018
+
+@author: evans
+"""
+
+4/19
+ - angle is wrong on D02 outputs img 
+  Brian calculated : 
+  ang_x = 0.1139
+  ang_y = 0.1318 
+  
+- pictures are too small, make them bigger 
+-remove picture axis (ticks)
+- add csv functionality 
+- double up the thresh method for each one. Give user option of which to choose. 

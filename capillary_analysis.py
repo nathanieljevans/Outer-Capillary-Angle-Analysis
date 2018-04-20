@@ -16,6 +16,7 @@ from time import time
 from math import factorial
 from datetime import date
 
+
 LEDGE_SEPARATION_DISTANCE = 0.577 # in  -- use calibrated tool during data acq. procedure 
 UPPER_BORE_DIAM = 0.092 # in  -- original estimates, use only if no user input
 LOWER_BORE_DIAM = 0.057 # in  -- original estimates, use only if no user input
@@ -24,14 +25,14 @@ LOWER_BORE_DIAM = 0.057 # in  -- original estimates, use only if no user input
 CAPILLARY_DIAM_UP_BOUND = 60
 CAPILLARY_DIAM_LOW_BOUND = 30
 
-# (radius lower bound, radius upper bound, threshold)
-LOWER_BORE_SPECS = (120, 210, 0.3)
-UPPER_BORE_SPECS = (250, 400, 0.3)
+# (threshold, radius lower bound, radius upper bound)
+LOWER_BORE_SPECS = (0.3, 120, 210)
+UPPER_BORE_SPECS = (0.3, 250, 400)
 
 
 
 class OC_example(object):
-    def __init__(self, OCA_ID, carrier_ID, upper_bore_ID=UPPER_BORE_DIAM, lower_bore_ID=LOWER_BORE_DIAM, ledge_separation=LEDGE_SEPARATION_DISTANCE, example_path=''):
+    def __init__(self, example_path, OCA_ID, carrier_ID, upper_bore_ID=UPPER_BORE_DIAM, lower_bore_ID=LOWER_BORE_DIAM, ledge_separation=LEDGE_SEPARATION_DISTANCE):
         self.OCA = OCA_ID
         self.carrier = carrier_ID 
         self.upper_bore = upper_bore_ID
@@ -40,32 +41,39 @@ class OC_example(object):
         self.path = example_path
         self.date = date.today()
         self.fig, self.axarr = plt.subplots(ncols=2, nrows=5, figsize=(30, 15))
-        self.ax_i = 0
+        self.sort_axarr()
+
         print("OCA ID: " + str(OCA_ID) + "  -  Carrier_ID: " + str(carrier_ID))
         
+    def sort_axarr(self): 
+        axs = []
+        for ax in self.axarr.flatten(): 
+            axs.append(ax)
+        self.axarr = axs    
+        
     def load_images(self): 
-         DIRS = os.listdir(self.example_path)
+         DIRS = os.listdir(self.path)
          ii=0
          for opt in DIRS:     
             if (opt[-4] is not '.'):
                 if (ii == 0): 
                     print("\tBOTTOM? " + str(opt))
-                    self.bottom_ledge = ledge_set(self.example_path + '\\' + opt, self.axarr[ self.axarr[0:6] ], LOWER_BORE_SPECS)
+                    self.bottom_ledge = ledge_set(self.path + '\\' + opt, self.axarr[0:5], LOWER_BORE_SPECS)
                     
-                if (ii == 1):
+                elif (ii == 1):
                     print("\tTOP? " + str(opt))
-                    self.upper_ledge = ledge_set(self.example_path + '\\' + opt, self.axarr[ self.axarr[6:] ], UPPER_BORE_SPECS)
+                    self.upper_ledge = ledge_set(self.path + '\\' + opt, self.axarr[5:], UPPER_BORE_SPECS)
                     
                 else: 
                     raise TypeError("Too many folders in the ledge directory; There should only be a top and bottom folder (total 2)")
-                    raise
+                ii+=1
                 
     def calculate_angle(self): 
         lower = {"DX" : self.bottom_ledge.cap_dist_from_rot_axis[0], 
                  "DY" : self.bottom_ledge.cap_dist_from_rot_axis[1], 
                 "bore diam" : self.bottom_ledge.avg_bore_diameter, 
-                "rotation axis residue" : self.lower_ledge.residuB, 
-                "rotation path radius" : self.lower_ledge.rcB, 
+                "rotation axis residue" : self.bottom_ledge.residuB, 
+                "rotation path radius" : self.bottom_ledge.rcB, 
                 "descrip" : "lower ledge values"}
         
         upper = {"DX" : self.upper_ledge.cap_dist_from_rot_axis[0], 
@@ -115,7 +123,7 @@ class OC_example(object):
         b = y1 - m * x1 
         self.inlet_offset = -b/m
         
-        f = open(self.path+'\\angle_calc-' + (self.path.split('\\')[-1]).replace('.','').replace(' ','') +'.txt', 'a')
+        f = open(self.path+'\\outputs-' + self.analyis_method + '-' + str(self.date) + '-' + (self.path.split('\\')[-1]).replace('.','').replace(' ','') +'.txt', 'a')
         f.write('inlet offset: ' + str(self.inlet_offset))
         f.close()
         
@@ -124,9 +132,17 @@ class OC_example(object):
         self.fig.suptitle('OCA: ' + self.OCA + ' - Carrier: ' + self.carrier + 
                           '\nDate: ' + str(self.date) + 
                           '\nX Angle: ' + str(self.angle_x) + 
-                          '\nRot. Axis - Cap. Inlet X offset: ' + str(self.inlet_offset))
-        self.fig.savefig(self.path + '\\' + 'outputs-' + str(self.date) + '.png')
+                          '\nRot. Axis - Cap. Inlet X offset: ' + str(self.inlet_offset), fontsize=12)
         
+        self.fig.savefig(self.path + '\\outputs-' + self.analyis_method + '-' + str(self.date) + '.png')
+        
+        
+    def analyze_images(self, method='otsu'): 
+        self.analyis_method = method
+        self.bottom_ledge.analyze(method=method)
+        self.upper_ledge.analyze(method=method)
+        self.bottom_ledge.calculate_ledge_features()
+        self.upper_ledge.calculate_ledge_features()
                     
                     
 
@@ -136,6 +152,7 @@ class ledge_set(object):
         self.name = path.split('\\')[-1]    # upper/lower
         self.path = path
         self.imgs = []
+        
         self.axes = axes[0]
         self.img_axes = axes[1:]
         self.specs = specs
@@ -148,6 +165,8 @@ class ledge_set(object):
         self.bore_ys = []
         self.bore_rads = []
         
+        self.load_imgs()
+        
     def load_imgs(self):
         img_names = os.listdir(self.path)
         i = 0
@@ -157,8 +176,17 @@ class ledge_set(object):
                 i+=1 
         if (i != 4): 
             raise TypeError("Too few or too many images in ledge set folder: " + str(self.name))
-            raise
     
+    def analyze(self, method='otsu'): 
+        if (method == 'otsu'): 
+            for img in self.imgs: 
+                img.analyze_otsu()
+        elif(method == 'lowexp'): 
+            for img in self.imgs: 
+                img.analyze_lowexp()
+        else: 
+            raise TypeError('Must use analysis method either: \'otsu\' or \'lowexp\'')
+            
     def calculate_ledge_features(self):
         
         # capillary analysis-XXX() needs to have been run before this method can function
@@ -175,10 +203,9 @@ class ledge_set(object):
             raise ValueError('An image analysis method needs to be run on the image before calculating ledge features')
             raise
         
-        
         # add overlaid (non-aligned) circles to axes in red
-        self.axes.imshow(self.imgs[0])
-        self.axes.title = 'composite img: ' + self.name
+        self.axes.imshow(self.imgs[0].img)
+        self.axes.set_title('composite img: ' + self.name)
         for cx,cy,cr,bx,by,br in zip(self.cap_xs, self.cap_ys, self.cap_rads, self.bore_xs, self.bore_ys, self.bore_rads):
             self.axes.add_patch(Circle((cx,cy),cr, color='r', fill=False))
             self.axes.add_patch(Circle((bx,by),br, color='r', fill=False))
@@ -281,7 +308,8 @@ class image(object):
             self.bore_y = cy[0]
             self.bore_r = radii[0]
         
-            self.axes.imshow(image)
+            self.axes.imshow(self.img)
+            self.axes.set_title(str(self.name))
             self.axes.add_patch(Circle((self.bore_x,self.bore_y), self.bore_r, color='r', fill=False))
             self.axes.add_patch(Circle((self.cap_x,self.cap_y), self.cap_r, color='r', fill=False))
             
@@ -293,7 +321,7 @@ class image(object):
     # only run one analysis method per image object, running a second will overwrite 
     def analyze_lowexp(self): 
         try:
-            summed = np.add(np.add(image[:,:,0], image[:,:,1]), image[:,:,2]) 
+            summed = np.add(np.add(self.img[:,:,0], self.img[:,:,1]), self.img[:,:,2]) 
         
             smoothed = filters.gaussian(summed, 5)       
             
@@ -305,6 +333,7 @@ class image(object):
             hough_radii = np.arange(CAPILLARY_DIAM_LOW_BOUND, CAPILLARY_DIAM_UP_BOUND, 2)
             hough_res = trans.hough_circle(edges, hough_radii)
             
+            print('\tcalculating hough transform...')
             # Select the most prominent 1 circles
             accums, cx, cy, radii = trans.hough_circle_peaks(hough_res, hough_radii, total_num_peaks=1)
             self.cap_x = cx[0]
@@ -317,12 +346,13 @@ class image(object):
             
             # Select the most prominent 5 circles
             accums, cx, cy, radii = trans.hough_circle_peaks(hough_res, hough_radii, total_num_peaks=1)
-            print("bore - accums, cx, cy, radii " + str( (accums, cx, cy, radii) ))
+            
+            print("\tbore - accums, cx, cy, radii " + str( (accums, cx, cy, radii) ))
             self.bore_x = cx[0]
             self.bore_y = cy[0]
             self.bore_r = radii[0]
         
-            self.axes.imshow(image)
+            self.axes.imshow(self.img)
             self.axes.add_patch(Circle((self.bore_x, self.bore_y), self.bore_r, color='r', fill=False))
             self.axes.add_patch(Circle((self.cap_x, self.cap_y), self.cap_r, color='r', fill=False))
             
@@ -466,79 +496,11 @@ ___________________________________________________
     """
 
 def check_rot_points_tightness(xs, ys):
-    print('xs std : ' + str(np.std(xs)))
-    print('ys std : ' + str(np.std(ys)))
     if (np.std(xs) <= 2 and np.std(ys) <= 2): 
         return True
     else: 
         return False 
         
-        
-def cutoff(x, specs): 
-    shp = x.shape
-#    THRESHOLD = np.amin(x) + 0.05
-#    print('shape ' + str(shp))
-#    print('max ' + str(np.amax(x)))
-#    print('min ' + str(np.amin(x)))
-#    print('mean ' + str(np.mean(x)))
-#    print('std dev ' + str(np.std(x)))
-#    print('THRESHOLD: ' + str(THRESHOLD))
-#    
-#    fx_unsmoothed = x.flatten()
-#    plt.hist(fx_unsmoothed, bins=100)
-#    plt.show()
-#    
-#    slic = savitzky_golay(x[int(shp[0]/2),:], window_size=25)
-#    
-#    plt.plot(slic)
-#    plt.show()
-#    
-#    fx_unsmoothed.sort()
-#    fx = savitzky_golay(fx_unsmoothed)
-#    
-#    d_fx = np.gradient(fx)
-##    d2_fx = np.gradient(d_fx)
-##    max_curve = np.amax(d2_fx[np.where(fx >= 0.3)[0][0] : np.where(fx >= 0.7)[0][0]])
-##    a_val = fx[np.where(d2_fx == max_curve)[0][0]]
-#
-#    # want the first point after it's peak at which the deriv is X% of it's max val 
-#    dfx_peak_i = np.where(d_fx == np.amax(d_fx))[0]
-#    
-#    print('dfx peak ' + str(dfx_peak_i))
-#    eop_is = np.where(d_fx <= 0.1*np.amax(d_fx))
-#    print(eop_is)
-#    eop_i = -1
-#    for i in eop_is[0]: 
-#        if (i >= dfx_peak_i): 
-#            eop_i = i
-#            break
-#        
-#    fx_mid = (fx[int(eop_i)] - fx[0])/2 + fx[0]
-#            
-#    print('even out point index ' + str(eop_i))
-#    eop_dfx = d_fx[eop_i]
-#    eop_fx = fx[eop_i]
-#    
-#    print('even out point (dfx, fx): ' + str( (eop_dfx, eop_fx)))
-##    print("a val: " + str(a_val))
-#    THRESHOLD = fx_mid
-#    plt.plot(fx,color='g' )
-#    plt.plot(fx_unsmoothed,color='r')
-##    plt.plot([a_val]*len(fx),color='y')
-#    plt.plot([eop_fx]*len(fx),color='r')
-#    plt.plot([fx_mid]*len(fx),color='g')
-#    plt.show()
-#    plt.plot(d_fx,color='b')
-#    plt.plot([eop_dfx]*len(fx),color='r')
-#    plt.show()
-
-    THRESHOLD = specs[0]    #0.05
-    c = np.zeros(shp)
-    for i in range(shp[0]): 
-        for j in range(shp[1]):
-            if (x[i,j] > THRESHOLD):
-                c[i,j] = 1
-    return c
         
 def normalize(v):
     norm = np.linalg.norm(v)
