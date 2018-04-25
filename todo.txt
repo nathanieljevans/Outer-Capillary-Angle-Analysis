@@ -10,8 +10,13 @@ Created on Thu Apr 19 18:27:27 2018
   Brian calculated : 
   ang_x = 0.1139
   ang_y = 0.1318 
+  4/25, found the issue; wrong ledge value was being used. 
   
 - pictures are too small, make them bigger 
--remove picture axis (ticks)
-- add csv functionality 
-- double up the thresh method for each one. Give user option of which to choose. 
+- remove picture axis (ticks) - 4/25
+- add csv functionality - 4/25
+- double up the thresh method for each one. Give user option of which to choose. -4/25
+
+4/25
+- doubling up the methods seems to result in the second time thru causing some miscalculation, all otsu methods failed... not sure why. 
+

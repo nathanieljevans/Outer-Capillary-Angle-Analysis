@@ -11,6 +11,7 @@ from time import time
 import capillary_analysis as ca
 import os 
 import csv
+from datetime import date
 
 def main(): 
     tic = time()
@@ -19,21 +20,35 @@ def main():
     print('where X=carrier ID, Y=OCA_ID, A=upper_bore_diam (in), B=lower_bore_diam, 001-batch_iteration')
     print('example: B05-3963-0.096-0.053-001')
     main_dir = input('Enter the directory that contains the example directories to be analyzed: ')
-
-    f = open(main_dir + '\\all_outputs.csv', 'w')
+    
+    f = open(main_dir + '\\all_outputs-' + str(date.today()) + '.csv', 'w')
     writer = csv.writer(f)
     writer.writerow(ca.OC_example.get_output_header())
     
     for dir_ in filter(lambda x: x[-4] is not '.', os.listdir(main_dir)):
-        print('Beginning dataset: ' + str(dir_))
-        OCA, CAR, UB_D, LB_D = parse_dir_name(dir_)
-        example = ca.OC_example(main_dir + '\\' + dir_, OCA, CAR, upper_bore_ID=UB_D, lower_bore_ID=LB_D)
-        example.load_images()
-        example.analyze_images(method='lowexp')
-        example.calculate_angle()
-        example.calculate_offset()
-        example.generate_and_save_plots()
-        writer.writerow(example.print_output_line())
+        try: 
+            print('Beginning dataset: ' + str(dir_))
+            OCA, CAR, UB_D, LB_D = parse_dir_name(dir_)
+            print('parsing vals: ')
+            print('OCA: ' + str(OCA))
+            print('CAR: ' + str(CAR))
+            print('Upper bore diam: ' + str(UB_D))
+            print('Lower bore diam: ' + str(LB_D))
+            example = ca.OC_example(main_dir + '\\' + dir_, OCA, CAR, upper_bore_ID=UB_D, lower_bore_ID=LB_D)
+            example.load_images()
+            example.analyze_images(method='lowexp')
+            example.calculate_angle()
+            example.calculate_offset()
+            example.generate_and_save_plots()
+            writer.writerow(example.print_output_line())
+            
+            example.analyze_images(method='otsu')
+            example.calculate_angle()
+            example.calculate_offset()
+            example.generate_and_save_plots()
+            writer.writerow(example.print_output_line())
+        except: 
+            print('Failed dir: ' + str(dir_))
     f.close()
         
     
@@ -46,7 +61,7 @@ def parse_dir_name(name):
         OCA = vals[1]
         up_diam = vals[2]
         low_diam = vals[3]
-        return OCA, car, up_diam, low_diam
+        return OCA, car, float(up_diam), float(low_diam)
     except: 
         raise TypeError('Check directory naming nomenclature')
         raise

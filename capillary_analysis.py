@@ -35,12 +35,12 @@ class OC_example(object):
     def __init__(self, example_path, OCA_ID, carrier_ID, upper_bore_ID=UPPER_BORE_DIAM, lower_bore_ID=LOWER_BORE_DIAM, ledge_separation=LEDGE_SEPARATION_DISTANCE):
         self.OCA = OCA_ID
         self.carrier = carrier_ID 
-        self.upper_bore = upper_bore_ID
-        self.lower_bore = lower_bore_ID
+        self.upper_bore_ID = upper_bore_ID
+        self.lower_bore_ID = lower_bore_ID
         self.ledge_separation = ledge_separation
         self.path = example_path
         self.date = date.today()
-        self.fig, self.axarr = plt.subplots(ncols=2, nrows=5, figsize=(30, 15))
+        self.fig, self.axarr = plt.subplots(ncols=2, nrows=5, figsize=(40, 40), sharex='all', sharey='all')
         self.sort_axarr()
 
         print("OCA ID: " + str(OCA_ID) + "  -  Carrier_ID: " + str(carrier_ID))
@@ -57,6 +57,7 @@ class OC_example(object):
                 self.angle_x,
                 self.angle_y, 
                 self.inlet_offset, 
+                self.analyis_method,
                 self.upper_ledge.cap_dist_from_rot_axis, 
                 self.upper_ledge.avg_bore_diameter,
                 self.upper_ledge.bore_diam_std,
@@ -74,7 +75,8 @@ class OC_example(object):
                   'oca id', 
                   'angle x',
                   'angle y', 
-                  'OC inlet - rot axis offset', 
+                  'OC inlet - rot axis offset',
+                  'image analysis method',
                   'upper bore cap dist from rot axis',
                   'upper bore avg bore diam',
                   'upper bore bore diam std',
@@ -121,30 +123,30 @@ class OC_example(object):
                 "rotation path radius" : self.upper_ledge.rcB, 
                 "descrip" : "upper ledge values"}
         
-        vals = {"upper ledge" : upper, "lower ledge" : lower, "Description " : "DX, DY, bore diam"}
+        self.vals = {"upper ledge" : upper, "lower ledge" : lower, "Description " : "DX, DY, bore diam"}
         
         # get conversion from pixels to in
-        vals["upper ledge"]['px map'] = UPPER_BORE_DIAM / vals['upper ledge']['bore diam']
-        vals['lower ledge']['px map'] = LOWER_BORE_DIAM / vals['lower ledge']['bore diam']
+        self.vals["upper ledge"]['px map'] = self.upper_bore_ID / self.vals['upper ledge']['bore diam']
+        self.vals['lower ledge']['px map'] = self.lower_bore_ID / self.vals['lower ledge']['bore diam']
     
-        vals['upper ledge']['DX-in'] = vals["upper ledge"]['px map']*vals['upper ledge']['DX']
-        vals['upper ledge']['DY-in'] = vals["upper ledge"]['px map']*vals['upper ledge']['DY']
+        self.vals['upper ledge']['DX-in'] = self.vals["upper ledge"]['px map']* self.vals['upper ledge']['DX']
+        self.vals['upper ledge']['DY-in'] = self.vals["upper ledge"]['px map']* self.vals['upper ledge']['DY']
     
-        vals['lower ledge']['DX-in'] = vals["lower ledge"]['px map']*vals['lower ledge']['DX']
-        vals['lower ledge']['DY-in'] = vals["lower ledge"]['px map']*vals['lower ledge']['DY']
+        self.vals['lower ledge']['DX-in'] = self.vals["lower ledge"]['px map']* self.vals['lower ledge']['DX']
+        self.vals['lower ledge']['DY-in'] = self.vals["lower ledge"]['px map']* self.vals['lower ledge']['DY']
 
-        vals['angle_x'] = np.degrees(np.arctan( ( vals['upper ledge']['DX-in'] - vals['lower ledge']['DX-in'] ) / LEDGE_SEPARATION_DISTANCE)) 
-        vals['angle_y'] = np.degrees(np.arctan( ( vals['upper ledge']['DY-in'] - vals['lower ledge']['DY-in'] ) / LEDGE_SEPARATION_DISTANCE)) 
-        self.angle_x = vals['angle_x']
-        self.angle_y = vals['angle_y']
+        self.vals['angle_x'] = np.degrees(np.arctan( ( self.vals['upper ledge']['DX-in'] - self.vals['lower ledge']['DX-in'] ) / LEDGE_SEPARATION_DISTANCE)) 
+        self.vals['angle_y'] = np.degrees(np.arctan( ( self.vals['upper ledge']['DY-in'] - self.vals['lower ledge']['DY-in'] ) / LEDGE_SEPARATION_DISTANCE)) 
+        self.angle_x = self.vals['angle_x']
+        self.angle_y = self.vals['angle_y']
     
-        vals['upper ledge']['mapped rotation path radius'] = vals['upper ledge']['rotation path radius']*vals['upper ledge']['px map']
-        vals['lower ledge']['mapped rotation path radius'] = vals['lower ledge']['rotation path radius']*vals['lower ledge']['px map']
+        self.vals['upper ledge']['mapped rotation path radius'] = self.vals['upper ledge']['rotation path radius']* self.vals['upper ledge']['px map']
+        self.vals['lower ledge']['mapped rotation path radius'] = self.vals['lower ledge']['rotation path radius']* self.vals['lower ledge']['px map']
     
         f = open(self.path+'\\angle_calc-' + (self.path.split('\\')[-1]).replace('.','').replace(' ','') +'.txt', 'w')
 
         try:
-            f.write(dict_printer(vals, 0))
+            f.write(dict_printer(self.vals, 0))
         except:
             raise TypeError("Dictionary failed to print to file at example: " + str(self.path))
             raise
@@ -153,15 +155,23 @@ class OC_example(object):
         return (self.angle_x, self.angle_y)
                     
     def calculate_offset(self):
-        x1 = self.upper_ledge.cap_dist_from_rot_axis[0]
+        '''
+        
+            |\       
+            |_\ 
+            |  \
+            |___\
+        
+        '''
+        f = open(self.path+'\\outputs-' + self.analyis_method + '-' + str(self.date) + '-' + (self.path.split('\\')[-1]).replace('.','').replace(' ','') +'.txt', 'a')
+        x1 = self.vals['upper ledge']['DX-in']
         y1 = 1.5 # in - distance from lead in to upper ledge
-        x2 = self.bottom_ledge.cap_dist_from_rot_axis[0]
+        x2 = self.vals['lower ledge']['DX-in']
         y2 = y1 - LEDGE_SEPARATION_DISTANCE # distance from lead in to lower ledge     
         m = (y2-y1) / (x2 - x1)
         b = y1 - m * x1 
         self.inlet_offset = -b/m
         
-        f = open(self.path+'\\outputs-' + self.analyis_method + '-' + str(self.date) + '-' + (self.path.split('\\')[-1]).replace('.','').replace(' ','') +'.txt', 'a')
         f.write('inlet offset: ' + str(self.inlet_offset))
         f.close()
         
