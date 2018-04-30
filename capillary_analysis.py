@@ -29,7 +29,7 @@ CAPILLARY_DIAM_LOW_BOUND = 30
 LOWER_BORE_SPECS = (0.3, 120, 210)
 UPPER_BORE_SPECS = (0.3, 250, 400)
 
-
+ROT_PATH_STD_DEV_CUTTOFF = 5
 
 class OC_example(object):
     def __init__(self, example_path, OCA_ID, carrier_ID, upper_bore_ID=UPPER_BORE_DIAM, lower_bore_ID=LOWER_BORE_DIAM, ledge_separation=LEDGE_SEPARATION_DISTANCE):
@@ -545,7 +545,9 @@ ___________________________________________________
     """
 
 def check_rot_points_tightness(xs, ys):
-    if (np.std(xs) <= 2 and np.std(ys) <= 2): 
+    print('xs std: ' + str(np.std(xs)))
+    print('ys std: ' + str(np.std(ys)))
+    if (np.std(xs) <= ROT_PATH_STD_DEV_CUTTOFF and np.std(ys) <= ROT_PATH_STD_DEV_CUTTOFF): 
         return True
     else: 
         return False 

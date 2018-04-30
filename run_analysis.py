@@ -23,7 +23,7 @@ def main():
     
     f = open(main_dir + '\\all_outputs-' + str(date.today()) + '.csv', 'w')
     writer = csv.writer(f)
-    writer.writerow(ca.OC_example.get_output_header())
+    writer.writerow( ['dir name'] + ca.OC_example.get_output_header() ) # .insert(0,"dir name") 
     
     for dir_ in filter(lambda x: x[-4] is not '.', os.listdir(main_dir)):
         try: 
@@ -40,13 +40,15 @@ def main():
             example.calculate_angle()
             example.calculate_offset()
             example.generate_and_save_plots()
-            writer.writerow(example.print_output_line())
+            writer.writerow( [dir_] + example.print_output_line() )
             
-            example.analyze_images(method='otsu')
-            example.calculate_angle()
-            example.calculate_offset()
-            example.generate_and_save_plots()
-            writer.writerow(example.print_output_line())
+            example_otsu = ca.OC_example(main_dir + '\\' + dir_, OCA, CAR, upper_bore_ID=UB_D, lower_bore_ID=LB_D)
+            example_otsu.load_images()
+            example_otsu.analyze_images(method='otsu')
+            example_otsu.calculate_angle()
+            example_otsu.calculate_offset()
+            example_otsu.generate_and_save_plots()
+            writer.writerow( [dir_] + example_otsu.print_output_line() )
         except: 
             print('Failed dir: ' + str(dir_))
     f.close()
