@@ -20,6 +20,7 @@ def main():
     print('where X=carrier ID, Y=OCA_ID, A=upper_bore_diam (in), B=lower_bore_diam, 001-batch_iteration')
     print('example: B05-3963-0.096-0.053-001')
     main_dir = input('Enter the directory that contains the example directories to be analyzed: ')
+    method = input("Image analysis method to use: [both, otsu, lowexp] ")
     
     f = open(main_dir + '\\all_outputs-' + str(date.today()) + '.csv', 'w')
     writer = csv.writer(f)
@@ -34,21 +35,24 @@ def main():
             print('CAR: ' + str(CAR))
             print('Upper bore diam: ' + str(UB_D))
             print('Lower bore diam: ' + str(LB_D))
-            example = ca.OC_example(main_dir + '\\' + dir_, OCA, CAR, upper_bore_ID=UB_D, lower_bore_ID=LB_D)
-            example.load_images()
-            example.analyze_images(method='lowexp')
-            example.calculate_angle()
-            example.calculate_offset()
-            example.generate_and_save_plots()
-            writer.writerow( [dir_] + example.print_output_line() )
             
-#            example_otsu = ca.OC_example(main_dir + '\\' + dir_, OCA, CAR, upper_bore_ID=UB_D, lower_bore_ID=LB_D)
-#            example_otsu.load_images()
-#            example_otsu.analyze_images(method='otsu')
-#            example_otsu.calculate_angle()
-#            example_otsu.calculate_offset()
-#            example_otsu.generate_and_save_plots()
-#            writer.writerow( [dir_] + example_otsu.print_output_line() )
+            if (method == 'both' or method == 'lowexp'):
+                example = ca.OC_example(main_dir + '\\' + dir_, OCA, CAR, upper_bore_ID=UB_D, lower_bore_ID=LB_D)
+                example.load_images()
+                example.analyze_images(method='lowexp')
+                example.calculate_angle()
+                example.calculate_offset()
+                example.generate_and_save_plots()
+                writer.writerow( [dir_] + example.print_output_line() )
+            
+            if (method == 'both' or method == 'otsu'):
+                example_otsu = ca.OC_example(main_dir + '\\' + dir_, OCA, CAR, upper_bore_ID=UB_D, lower_bore_ID=LB_D)
+                example_otsu.load_images()
+                example_otsu.analyze_images(method='otsu')
+                example_otsu.calculate_angle()
+                example_otsu.calculate_offset()
+                example_otsu.generate_and_save_plots()
+                writer.writerow( [dir_] + example_otsu.print_output_line() )
         except: 
             print('Failed dir: ' + str(dir_))
             raise
