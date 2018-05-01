@@ -2,7 +2,7 @@
 """
 Created on Thu Apr 19 11:59:38 2018
 
-handle user input and data output
+handle user input and data output combination
 
 @author: evans
 """
@@ -42,15 +42,16 @@ def main():
             example.generate_and_save_plots()
             writer.writerow( [dir_] + example.print_output_line() )
             
-            example_otsu = ca.OC_example(main_dir + '\\' + dir_, OCA, CAR, upper_bore_ID=UB_D, lower_bore_ID=LB_D)
-            example_otsu.load_images()
-            example_otsu.analyze_images(method='otsu')
-            example_otsu.calculate_angle()
-            example_otsu.calculate_offset()
-            example_otsu.generate_and_save_plots()
-            writer.writerow( [dir_] + example_otsu.print_output_line() )
+#            example_otsu = ca.OC_example(main_dir + '\\' + dir_, OCA, CAR, upper_bore_ID=UB_D, lower_bore_ID=LB_D)
+#            example_otsu.load_images()
+#            example_otsu.analyze_images(method='otsu')
+#            example_otsu.calculate_angle()
+#            example_otsu.calculate_offset()
+#            example_otsu.generate_and_save_plots()
+#            writer.writerow( [dir_] + example_otsu.print_output_line() )
         except: 
             print('Failed dir: ' + str(dir_))
+            raise
     f.close()
         
     

@@ -29,7 +29,8 @@ CAPILLARY_DIAM_LOW_BOUND = 30
 LOWER_BORE_SPECS = (0.3, 120, 210)
 UPPER_BORE_SPECS = (0.3, 250, 400)
 
-ROT_PATH_STD_DEV_CUTTOFF = 5
+ROT_PATH_STD_DEV_CUTTOFF = 4
+CAPILLARY_DIAM = 0.011811 # inches 
 
 class OC_example(object):
     def __init__(self, example_path, OCA_ID, carrier_ID, upper_bore_ID=UPPER_BORE_DIAM, lower_bore_ID=LOWER_BORE_DIAM, ledge_separation=LEDGE_SEPARATION_DISTANCE):
@@ -126,8 +127,14 @@ class OC_example(object):
         self.vals = {"upper ledge" : upper, "lower ledge" : lower, "Description " : "DX, DY, bore diam"}
         
         # get conversion from pixels to in
-        self.vals["upper ledge"]['px map'] = self.upper_bore_ID / self.vals['upper ledge']['bore diam']
-        self.vals['lower ledge']['px map'] = self.lower_bore_ID / self.vals['lower ledge']['bore diam']
+        print("upper ledge pix map using bore " + str( self.upper_bore_ID / self.vals['upper ledge']['bore diam']))
+        print("lower ledge pix map using bore " + str( self.lower_bore_ID / self.vals['lower ledge']['bore diam']))
+        self.vals["upper ledge"]['px map'] =  CAPILLARY_DIAM / self.upper_ledge.cap_diam
+        self.vals['lower ledge']['px map'] =  CAPILLARY_DIAM / self.bottom_ledge.cap_diam
+#        self.vals["upper ledge"]['px map'] =  ( self.upper_bore_ID / self.vals['upper ledge']['bore diam'])
+#        self.vals['lower ledge']['px map'] =  ( self.lower_bore_ID / self.vals['lower ledge']['bore diam'])
+        print('upper ledge pix map using cap: ' + str(CAPILLARY_DIAM / self.upper_ledge.cap_diam))
+        print('lower ledge pix map using cap: ' + str(CAPILLARY_DIAM / self.bottom_ledge.cap_diam))
     
         self.vals['upper ledge']['DX-in'] = self.vals["upper ledge"]['px map']* self.vals['upper ledge']['DX']
         self.vals['upper ledge']['DY-in'] = self.vals["upper ledge"]['px map']* self.vals['upper ledge']['DY']
@@ -156,12 +163,12 @@ class OC_example(object):
                     
     def calculate_offset(self):
         '''
-        
-            |\       
-            |_\ 
-            |  \
-            |___\
-        
+   y1=1.5in   _ x1      
+        /|   | \         
+         |   |__\ x2   y2=0.933in
+         |   |   \       /| 
+         |/  |____\       |/
+              inlet_offset
         '''
         f = open(self.path+'\\outputs-' + self.analyis_method + '-' + str(self.date) + '-' + (self.path.split('\\')[-1]).replace('.','').replace(' ','') +'.txt', 'a')
         x1 = self.vals['upper ledge']['DX-in']
@@ -290,11 +297,13 @@ class ledge_set(object):
                 
         #rotation_axis_xy = ((max(bore_xs) + min(bore_xs)) / 2, (max(bore_ys) + min(bore_ys)) / 2)
         rotation_axis_xy = (self.xcB,self.ycB)
-        avg_cap_xy = ( (sum(self.cap_xs)/len(self.cap_xs)),(sum(self.cap_ys)/len(self.cap_ys))  )
-        self.cap_dist_from_rot_axis = ( abs(rotation_axis_xy[0] - avg_cap_xy[0]), abs(rotation_axis_xy[1] - avg_cap_xy[1]) ) 
+        #avg_cap_xy = ( np.average(self.cap_xs), np.average(self.cap_ys) )
+        # use cap xy from first photo, the value that all the caps are aligned too.
+        self.cap_dist_from_rot_axis = ( (rotation_axis_xy[0] - x_ref), (rotation_axis_xy[1] - y_ref) ) 
         self.avg_bore_diameter = 2* (sum(self.bore_rads) / len(self.bore_rads))
         self.bore_diam_std = np.std(self.bore_rads)
         self.cap_diam_std = np.std(self.cap_rads)
+        self.cap_diam = 2*np.average(self.cap_rads)
             
         for cx,cy,cr,bx,by,br in zip(self.cap_xs, self.cap_ys, self.cap_rads, self.bore_xs, self.bore_ys, self.bore_rads):
             #add aligned capillary and bore positions in green
@@ -547,7 +556,7 @@ ___________________________________________________
 def check_rot_points_tightness(xs, ys):
     print('xs std: ' + str(np.std(xs)))
     print('ys std: ' + str(np.std(ys)))
-    if (np.std(xs) <= ROT_PATH_STD_DEV_CUTTOFF and np.std(ys) <= ROT_PATH_STD_DEV_CUTTOFF): 
+    if (np.std(xs) <= ROT_PATH_STD_DEV_CUTTOFF or np.std(ys) <= ROT_PATH_STD_DEV_CUTTOFF): 
         return True
     else: 
         return False 
