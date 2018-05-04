@@ -31,6 +31,7 @@ UPPER_BORE_SPECS = (0.3, 250, 400)
 
 ROT_PATH_STD_DEV_CUTTOFF = 4
 CAPILLARY_DIAM = 0.011811 # inches 
+INLET_TO_UPPER_LEDGE = 1.5
 
 class OC_example(object):
     def __init__(self, example_path, OCA_ID, carrier_ID, upper_bore_ID=UPPER_BORE_DIAM, lower_bore_ID=LOWER_BORE_DIAM, ledge_separation=LEDGE_SEPARATION_DISTANCE):
@@ -172,7 +173,7 @@ class OC_example(object):
         '''
         f = open(self.path+'\\outputs-' + self.analyis_method + '-' + str(self.date) + '-' + (self.path.split('\\')[-1]).replace('.','').replace(' ','') +'.txt', 'a')
         x1 = self.vals['upper ledge']['DX-in']
-        y1 = 1.5 # in - distance from lead in to upper ledge
+        y1 = INLET_TO_UPPER_LEDGE # in - distance from lead in to upper ledge
         x2 = self.vals['lower ledge']['DX-in']
         y2 = y1 - LEDGE_SEPARATION_DISTANCE # distance from lead in to lower ledge     
         m = (y2-y1) / (x2 - x1)
@@ -240,7 +241,7 @@ class ledge_set(object):
             for img in self.imgs: 
                 img.analyze_lowexp()
         else: 
-            raise TypeError('Must use analysis method either: \'otsu\' or \'lowexp\'')
+            raise TypeError('Must use analysis method, either: \'otsu\' or \'lowexp\'')
             
     def calculate_ledge_features(self):
         
@@ -283,7 +284,7 @@ class ledge_set(object):
          # to fix it, check to see if its tightly clustered, if it is, don't do a circle fit
         try: 
             print('\tCalculating rotation axis...')
-            self.xcC,self.ycC,self.rC,self.residuC = leastsq_circle(self.cap_xs, self.cap_ys)
+            self.xcC,self.ycC = x_ref,y_ref
             if (check_rot_points_tightness(self.bore_xs, self.bore_ys)): 
                 self.xcB = np.average(self.bore_xs)
                 self.ycB = np.average(self.bore_ys)
@@ -293,14 +294,13 @@ class ledge_set(object):
                 self.xcB, self.ycB, self.rcB, self.residuB = leastsq_circle(self.bore_xs, self.bore_ys) 
         except: 
             raise ValueError('Failed trying to calculate the least sq best fit circle for cap and bore rot.')
-            raise
                 
         #rotation_axis_xy = ((max(bore_xs) + min(bore_xs)) / 2, (max(bore_ys) + min(bore_ys)) / 2)
         rotation_axis_xy = (self.xcB,self.ycB)
         #avg_cap_xy = ( np.average(self.cap_xs), np.average(self.cap_ys) )
         # use cap xy from first photo, the value that all the caps are aligned too.
         self.cap_dist_from_rot_axis = ( (rotation_axis_xy[0] - x_ref), (rotation_axis_xy[1] - y_ref) ) 
-        self.avg_bore_diameter = 2* (sum(self.bore_rads) / len(self.bore_rads))
+        self.avg_bore_diameter = 2 * (sum(self.bore_rads) / len(self.bore_rads))
         self.bore_diam_std = np.std(self.bore_rads)
         self.cap_diam_std = np.std(self.cap_rads)
         self.cap_diam = 2*np.average(self.cap_rads)
@@ -315,6 +315,7 @@ class ledge_set(object):
             self.axes.add_patch(Circle((self.xcB,self.ycB),self.rcB,color='y',fill=False))
         
         # add rotation center in white
+        self.axes.add_patch(Circle( (x_ref,y_ref), 4,  color='w', fill=True))
         self.axes.add_patch(Circle(rotation_axis_xy, 5, color='w', fill=True))
 
 
@@ -341,9 +342,15 @@ class image(object):
             # calculate edges via sobel method 
             edges = filters.sobel(otsu)
             
-            print('\tcalculating hough transform...')
+            self.finish_analysis(edges)
+
             
-            # Detect two radii
+        except: 
+            raise ValueError("Failed during Otsu analysis of img: " + str(self.name))
+            
+    def finish_analysis(self, edges): 
+        try:
+            print('\tcalculating hough transform...')
             hough_radii = np.arange(CAPILLARY_DIAM_LOW_BOUND, CAPILLARY_DIAM_UP_BOUND, 2)
             hough_res = trans.hough_circle(edges, hough_radii)
             
@@ -370,10 +377,8 @@ class image(object):
             self.axes.set_title(str(self.name))
             self.axes.add_patch(Circle((self.bore_x,self.bore_y), self.bore_r, color='r', fill=False))
             self.axes.add_patch(Circle((self.cap_x,self.cap_y), self.cap_r, color='r', fill=False))
-            
-        except: 
-            raise ValueError("Failed during Otsu analysis of img: " + str(self.name))
-            raise 
+        except:
+            raise ValueError("Failed in finish_analysis, attempting to calculate bore radii")
             
     # basic thresholding that works well for low exposure, high contrast photos
     # only run one analysis method per image object, running a second will overwrite 
@@ -387,48 +392,12 @@ class image(object):
             
             edges = filters.sobel(mask)
             
-            # Detect two radii
-            hough_radii = np.arange(CAPILLARY_DIAM_LOW_BOUND, CAPILLARY_DIAM_UP_BOUND, 2)
-            hough_res = trans.hough_circle(edges, hough_radii)
-            
-            print('\tcalculating hough transform...')
-            # Select the most prominent 1 circles
-            accums, cx, cy, radii = trans.hough_circle_peaks(hough_res, hough_radii, total_num_peaks=1)
-            self.cap_x = cx[0]
-            self.cap_y = cy[0]
-            self.cap_r = radii[0]
-            
-            # Detect two radii
-            hough_radii = np.arange(self.specs[1], self.specs[2], 2)
-            hough_res = trans.hough_circle(edges, hough_radii)
-            
-            # Select the most prominent 5 circles
-            accums, cx, cy, radii = trans.hough_circle_peaks(hough_res, hough_radii, total_num_peaks=1)
-            
-            print("\tbore - accums, cx, cy, radii " + str( (accums, cx, cy, radii) ))
-            self.bore_x = cx[0]
-            self.bore_y = cy[0]
-            self.bore_r = radii[0]
-        
-            self.axes.imshow(self.img)
-            self.axes.add_patch(Circle((self.bore_x, self.bore_y), self.bore_r, color='r', fill=False))
-            self.axes.add_patch(Circle((self.cap_x, self.cap_y), self.cap_r, color='r', fill=False))
+            self.finish_analysis(edges)
             
         except: 
             raise ValueError("Failed during lowexp analysis of img: " + str(self.name))
-            raise 
 
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
         
         
         
