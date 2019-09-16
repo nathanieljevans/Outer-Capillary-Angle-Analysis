@@ -64,7 +64,7 @@ For instance your file structure may look like:
 To analyze the data contained in inspection-001 (B03 and C006), specify the path during command line UI as: 
 "~/data-folder/inspection-001"
 
-Then specify the upper bore diam as: "0.092"
+Then specify the upper bore diam as: "0.092"  
 Then specify the lower bore diam as "0.052" 
 
 *don't include quotation marks* 
